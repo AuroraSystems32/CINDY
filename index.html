@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AURORA Systems</title>
-            <link rel="icon" type="image/png" href="AURORA.jpg">
-
+    <link rel="icon" type="image/png" href="CINDY.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
     <style>
@@ -148,8 +147,10 @@
         <div class="nav-icon" title="Math Wizard" onclick="toggleView('math-panel')"><span class="material-symbols-outlined">calculate</span></div>
         <div class="nav-icon" title="Subnet Calculator" onclick="toggleView('subnet-panel')"><span class="material-symbols-outlined">lan</span></div>
         <div class="nav-icon" title="Network Diagnostics" onclick="toggleView('netdiag-panel')"><span class="material-symbols-outlined">router</span></div>
+        <div class="nav-icon" title="Common Port Ref" onclick="toggleView('ports-panel')"><span class="material-symbols-outlined">door_open</span></div>
         <div class="nav-icon" title="Telemetry Monitor" onclick="toggleView('sysmon-panel')"><span class="material-symbols-outlined">monitoring</span></div>
         <div class="nav-icon" title="Base Codec & Conversions" onclick="toggleView('codec-panel')"><span class="material-symbols-outlined">data_object</span></div>
+        <div class="nav-icon" title="String Case Transformer" onclick="toggleView('stringcase-panel')"><span class="material-symbols-outlined">format_line_spacing</span></div>
         <div class="nav-icon" title="IT Data Converter" onclick="toggleView('dataconv-panel')"><span class="material-symbols-outlined">shutter_speed</span></div>
         <div class="nav-icon" title="Cron Expression Builder" onclick="toggleView('cron-panel')"><span class="material-symbols-outlined">schedule</span></div>
         <div class="nav-icon" title="Scratchpad" onclick="toggleView('notes-panel')"><span class="material-symbols-outlined">edit_note</span></div>
@@ -250,6 +251,14 @@
                 </div>
             </div>
 
+            <div class="panel hidden" id="ports-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">door_open</span> Protocol Library</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('ports-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <input type="text" id="portSearch" placeholder="Search port or name (e.g. 443)..." oninput="searchPorts()">
+                    <div class="output-box" id="portSearchOut" style="flex:1; font-size:0.75rem; white-space:pre-wrap;">21: FTP<br>22: SSH<br>23: Telnet<br>25: SMTP<br>53: DNS<br>80: HTTP<br>443: HTTPS<br>3306: MySQL</div>
+                </div>
+            </div>
+
             <div class="panel hidden" id="sysmon-panel">
                 <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">monitoring</span> Virtual Infrastructure Telemetry</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('sysmon-panel')"><span class="material-symbols-outlined">close</span></button></div>
                 <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap: 4px;">
@@ -276,6 +285,19 @@
                     <div style="display:flex; gap:8px;">
                         <button style="flex:1;" onclick="runCodec('enc')">Encode</button>
                         <button class="secondary" style="flex:1;" onclick="runCodec('dec')">Decode</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="stringcase-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">format_line_spacing</span> String Morph</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('stringcase-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <textarea id="stringIn" style="flex:1; resize:none;" placeholder="enter_variable_name"></textarea>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
+                        <button onclick="transformString('camel')">camelCase</button>
+                        <button onclick="transformString('snake')">snake_case</button>
+                        <button onclick="transformString('pascal')">PascalCase</button>
+                        <button onclick="transformString('kebab')">kebab-case</button>
                     </div>
                 </div>
             </div>
@@ -517,7 +539,6 @@
     </main>
 
     <script>
-        // Updated Default Panels Configuration to automatically open terminal + first 2
         let state = {
             notes: localStorage.getItem('cindy_notes') || '',
             config: JSON.parse(localStorage.getItem('cindy_config')) || { name: 'OPERATOR', color: '#eab308', bgUrl: '', font: "'Inter', sans-serif", matrix: false },
@@ -534,7 +555,7 @@
             if (state.config.matrix) initMatrix();
             
             setTimeout(() => {
-                addMessage("cindy", `CINDY Core v0.3 Initialization Completed.\nWelcome Operator. 20 New IT/Dev modules loaded into memory. Terminal and core parameters successfully bonded.`);
+                addMessage("cindy", `CINDY Core v0.5 Protocol Load.\nSubnet Logic Updated. Port Lib & Morph Modules Active.`);
             }, 500);
         };
 
@@ -642,8 +663,8 @@
             box.scrollTop = box.scrollHeight;
         }
 
-        /* --- CORE FUNCTIONS (Original) --- */
-        function switchMathUI() { /* Existed previously, kept minimal for space */ 
+        /* --- CORE FUNCTIONS --- */
+        function switchMathUI() { 
             const mode = document.getElementById('mathTask').value;
             document.getElementById('mathInputArea2').classList.toggle('hidden', mode !== 'geom');
             document.getElementById('mathIn1').placeholder = mode === 'geom' ? "Side A / Radius" : "Expression / Array";
@@ -664,16 +685,22 @@
             } catch (err) { out.innerText = `Error: ${err.message}`; }
         }
 
+        // SUBNET CALCULATION UPDATED WITH DOTTED MASK
         function calculateSubnet() {
             const ip = document.getElementById('subIp').value.trim(), cidr = parseInt(document.getElementById('subCidr').value);
             const out = document.getElementById('subnetOut');
             let ipParts = ip.split('.').map(x => parseInt(x));
-            if(ipParts.length !== 4 || isNaN(cidr)) return out.innerText = "Error: Invalid IPv4 / CIDR.";
-            let maskBits = (0xFFFFFFFF << (32 - cidr)) >>> 0;
+            if(ipParts.length !== 4 || isNaN(cidr) || cidr < 0 || cidr > 32) return out.innerText = "Error: Invalid IPv4 / CIDR.";
+            
+            // Mask Calculation
+            let maskBits = (cidr === 0) ? 0 : (0xFFFFFFFF << (32 - cidr)) >>> 0;
+            let maskStr = [ (maskBits >>> 24) & 255, (maskBits >>> 16) & 255, (maskBits >>> 8) & 255, maskBits & 255 ].join('.');
+            
             let ipNum = ((ipParts[0] << 24) | (ipParts[1] << 16) | (ipParts[2] << 8) | ipParts[3]) >>> 0;
             let netNum = (ipNum & maskBits) >>> 0;
             let netStr = [ (netNum >>> 24) & 255, (netNum >>> 16) & 255, (netNum >>> 8) & 255, netNum & 255 ].join('.');
-            out.innerText = `Network ID: ${netStr}/${cidr}\nTotal Hosts: ${Math.pow(2, 32 - cidr)}\nUsable: ${Math.pow(2, 32 - cidr) - 2}`;
+            
+            out.innerText = `Network ID: ${netStr}/${cidr}\nSubnet Mask: ${maskStr}\nTotal Hosts: ${Math.pow(2, 32 - cidr).toLocaleString()}\nUsable: ${Math.max(0, Math.pow(2, 32 - cidr) - 2).toLocaleString()}`;
         }
 
         function runDiagnostics() {
@@ -684,6 +711,28 @@
                 out.innerText += `\n64 bytes packet from ${target}: time=${(Math.random()*20 + 2).toFixed(2)}ms`;
                 if(ticks >= 4) clearInterval(interval);
             }, 300);
+        }
+
+        function searchPorts() {
+            const q = document.getElementById('portSearch').value.toLowerCase();
+            const out = document.getElementById('portSearchOut');
+            const ports = { "21":"FTP", "22":"SSH", "23":"Telnet", "25":"SMTP", "53":"DNS", "80":"HTTP", "443":"HTTPS", "3306":"MySQL", "5432":"PostgreSQL", "27017":"MongoDB", "6379":"Redis", "8080":"HTTP Alt", "1433":"MSSQL", "161":"SNMP" };
+            let results = [];
+            for (let p in ports) {
+                if (p.includes(q) || ports[p].toLowerCase().includes(q)) results.push(`${p}: ${ports[p]}`);
+            }
+            out.innerHTML = results.length ? results.join('<br>') : "No matching common protocol.";
+        }
+
+        function transformString(type) {
+            const el = document.getElementById('stringIn');
+            let val = el.value.trim();
+            if(!val) return;
+            let words = val.split(/[\s_-]+/).map(w => w.toLowerCase());
+            if(type === 'camel') el.value = words[0] + words.slice(1).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
+            if(type === 'snake') el.value = words.join('_');
+            if(type === 'pascal') el.value = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
+            if(type === 'kebab') el.value = words.join('-');
         }
 
         function convertDataUnits() {
@@ -698,13 +747,14 @@
         
         function runCodec(mode) {
             const t = document.getElementById('codecType').value, el = document.getElementById('codecInput');
-            try { el.value = (t==='b64' && mode==='enc') ? btoa(el.value) : (t==='b64') ? atob(el.value) : "Operation executed."; } catch(e) {}
+            try { 
+                if (t==='b64' && mode==='enc') el.value = btoa(el.value);
+                else if (t==='b64') el.value = atob(el.value);
+                else if (t==='bin' && mode==='enc') el.value = el.value.split('').map(c => c.charCodeAt(0).toString(2).padStart(8, '0')).join(' ');
+                else el.value = "Operation executed."; 
+            } catch(e) { el.value = "Error processing codec."; }
         }
 
-
-        /* --- 20 NEW FEATURE FUNCTIONS --- */
-        
-        // 1. Password Generator
         function generatePassword() {
             const len = document.getElementById('passLen').value;
             const up = document.getElementById('passUp').checked;
@@ -719,16 +769,13 @@
             document.getElementById('passOut').innerText = pass;
         }
 
-        // 2. Hash Generator (Simulated MD5/SHA)
         function generateHash() {
             const val = document.getElementById('hashIn').value;
             if(!val) return;
-            // Native lightweight quasi-hash for display
             let hash = 0; for (let i = 0; i < val.length; i++) hash = Math.imul(31, hash) + val.charCodeAt(i) | 0;
             document.getElementById('hashOut').innerText = `MD5 (Sim): ${Math.abs(hash).toString(16).padStart(32, '0')}\nSHA-256 (Sim): ${Math.abs(hash * 3).toString(16).padStart(64, 'f')}`;
         }
 
-        // 3. JWT Decoder
         function decodeJWT() {
             const val = document.getElementById('jwtIn').value;
             try {
@@ -738,7 +785,6 @@
             } catch(e) { document.getElementById('jwtOut').innerText = "Invalid JWT Signature or Base64 encoding."; }
         }
 
-        // 4. JSON Formatter
         function formatJSON() {
             try {
                 const val = document.getElementById('jsonIn').value;
@@ -746,13 +792,11 @@
             } catch(e) { document.getElementById('jsonOut').innerText = "Parse Error: Invalid JSON structure."; }
         }
 
-        // 5. URL Tools
         function processURL(mode) {
             const val = document.getElementById('urlIn').value;
             document.getElementById('urlOut').innerText = mode === 'enc' ? encodeURIComponent(val) : decodeURIComponent(val);
         }
 
-        // 6. Regex Tester
         function testRegex() {
             try {
                 const regex = new RegExp(document.getElementById('regexExp').value, 'g');
@@ -762,7 +806,6 @@
             } catch(e) { document.getElementById('regexOut').innerText = "Invalid Regex syntax."; }
         }
 
-        // 7. UNIX Time
         function convertEpoch() {
             const val = parseInt(document.getElementById('epochIn').value);
             if(isNaN(val)) return;
@@ -770,14 +813,12 @@
             document.getElementById('epochOut').innerText = `Local: ${date.toLocaleString()}\nUTC: ${date.toUTCString()}`;
         }
 
-        // 8. MAC Lookup (Mock)
         function lookupMAC() {
             const val = document.getElementById('macIn').value.substring(0,8).toUpperCase();
             const vendors = {"00:1A:2B": "Cisco Systems", "FC:FB:FB": "Apple Inc.", "00:14:22": "Dell Inc."};
             document.getElementById('macOut').innerText = vendors[val] ? `Vendor Mapping: ${vendors[val]}` : `Unregistered OUI Segment / Generic Network Node`;
         }
 
-        // 9. Port Scanner (Simulation)
         function simPortScan() {
             const target = document.getElementById('portTarget').value;
             const out = document.getElementById('portOut');
@@ -788,33 +829,28 @@
             setTimeout(() => out.innerText += `Port 3306 (MySQL): FILTERED\nScan Complete.`, 2000);
         }
 
-        // 10. HTTP Status
         function lookupHTTP() {
             const code = document.getElementById('httpIn').value;
             const codes = {"200": "OK", "301": "Moved Permanently", "400": "Bad Request", "401": "Unauthorized", "403": "Forbidden", "404": "Not Found", "500": "Internal Server Error", "502": "Bad Gateway", "418": "I'm a teapot"};
             document.getElementById('httpOut').innerText = codes[code] ? `HTTP ${code}: ${codes[code]}` : "Status Code undefined in standard RFC proxy.";
         }
 
-        // 11. SSL Checker (Simulation)
         function simSSLCheck() {
             const domain = document.getElementById('sslIn').value;
             document.getElementById('sslOut').innerText = `Fetching certificates for ${domain}...\nIssuer: Let's Encrypt Authority X3\nValid Until: ${new Date(Date.now() + 8640000000).toDateString()}\nCipher: TLS_AES_256_GCM_SHA384\nStatus: SECURE`;
         }
 
-        // 12. Lorem Ipsum
         function genLorem() {
             const p = document.getElementById('loremIn').value || 1;
             const text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. ";
             document.getElementById('loremOut').innerText = text.repeat(p);
         }
 
-        // 13. GeoIP (Simulation)
         function simGeoIP() {
             const ip = document.getElementById('geoIn').value;
             document.getElementById('geoOut').innerText = `Target: ${ip}\nASN: AS15169 Google LLC\nLocation: Mountain View, CA, US\nCoordinates: 37.422, -122.084`;
         }
 
-        // 14. CHMOD Calculator
         function calcCHMOD() {
             const val = document.getElementById('chmodIn').value;
             if (val.length !== 3) return;
@@ -822,39 +858,33 @@
             document.getElementById('chmodOut').innerHTML = `User: ${map[val[0]] || '?'}<br>Group: ${map[val[1]] || '?'}<br>Public: ${map[val[2]] || '?'}`;
         }
 
-        // 15. Text Diff
         function calcDiff() {
             const a = document.getElementById('diffA').value, b = document.getElementById('diffB').value;
             document.getElementById('diffOut').innerText = a === b ? "Strings are identical structurally." : `Discrepancy detected.\nLen A: ${a.length} | Len B: ${b.length}\nVariance confirmed.`;
         }
 
-        // 16. DNS Simulation
         function simDNS() {
             const domain = document.getElementById('dnsIn').value;
             document.getElementById('dnsOut').innerText = `; <<>> CINDY DiG 9.16.1 <<>> ${domain}\n;; ANSWER SECTION:\n${domain}. 300 IN A 192.0.2.146\n${domain}. 300 IN MX 10 mail.${domain}.`;
         }
 
-        // 17. SQL Formatter (Basic Regex Replace)
         function formatSQL() {
             let sql = document.getElementById('sqlIn').value;
             sql = sql.replace(/\b(SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|JOIN|AND|OR|ORDER BY|GROUP BY)\b/ig, '\n$1\n');
             document.getElementById('sqlOut').innerText = sql.replace(/\n+/g, '\n').trim();
         }
 
-        // 18. Color Picker Convert
         function convertColor() {
             const hex = document.getElementById('colorPickerIn').value;
             const r = parseInt(hex.substring(1,3), 16), g = parseInt(hex.substring(3,5), 16), b = parseInt(hex.substring(5,7), 16);
             document.getElementById('colorOut').innerHTML = `HEX: ${hex}<br>RGB: rgb(${r}, ${g}, ${b})`;
         }
 
-        // 19. ASCII Text
         function genASCII() {
             const val = document.getElementById('asciiIn').value.toUpperCase();
             document.getElementById('asciiOut').innerText = val.split('').map(c => `[ ${c} ]`).join(' ') + '\nASCII Matrix Renderer Online';
         }
 
-        // 20. UUID Generator
         function genUUID() {
             document.getElementById('uuidOut').innerText = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
                 var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
@@ -862,7 +892,6 @@
             });
         }
 
-        /* --- BACKGROUND SYSTEMS --- */
         function startSysMon() {
             setInterval(() => {
                 if(document.getElementById('sysmon-panel').classList.contains('hidden')) return;
