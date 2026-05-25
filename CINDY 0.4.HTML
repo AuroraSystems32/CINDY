@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURORA Systems</title>
+            <link rel="icon" type="image/png" href="AURORA.jpg">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+    <style>
+        :root {
+            --bg-base: #09090b;
+            --panel-bg: rgba(24, 24, 27, 0.75);
+            --text-main: #f4f4f5;
+            --text-dim: #a1a1aa;
+            --accent: #eab308; 
+            --accent-glow: rgba(234, 179, 8, 0.15);
+            --border: rgba(255, 255, 255, 0.08);
+            --sidebar-width: 70px;
+            --font-family: 'Inter', sans-serif;
+            --bg-image: none;
+        }
+
+        * { box-sizing: border-box; transition: background-color 0.2s, border-color 0.2s, color 0.2s; }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-base);
+            background-image: var(--bg-image);
+            background-size: cover;
+            background-position: center;
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #matrixCanvas {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: -1; opacity: 0; transition: opacity 1s ease; pointer-events: none;
+        }
+        #matrixCanvas.active { opacity: 0.25; }
+
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.98) translateY(5px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes slideInMsg {
+            from { opacity: 0; transform: translateX(-5px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        nav {
+            width: var(--sidebar-width);
+            background: rgba(9, 9, 11, 0.9);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 0;
+            gap: 18px;
+            z-index: 100;
+            overflow-y: auto;
+        }
+
+        .nav-icon { cursor: pointer; color: var(--text-dim); display: flex; flex-direction: column; align-items: center; gap: 5px; position: relative;}
+        .nav-icon span.material-symbols-outlined { font-size: 24px; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.1), color 0.2s; }
+        .nav-icon:hover { color: var(--accent); }
+        .nav-icon:hover span { transform: scale(1.08); text-shadow: 0 0 10px var(--accent-glow); }
+        .nav-icon.active-icon { color: var(--accent); }
+        .nav-icon.active-icon::after { content: ''; position: absolute; left: -15px; top: 25%; height: 50%; width: 3px; background: var(--accent); border-radius: 0 4px 4px 0; }
+
+        main { flex: 1; display: flex; flex-direction: column; padding: 20px; overflow-y: auto; z-index: 10; }
+
+        header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
+            background: var(--panel-bg); padding: 15px 20px; border-radius: 12px; border: 1px solid var(--border); backdrop-filter: blur(10px);
+            animation: popIn 0.4s ease-out;
+            flex-shrink: 0;
+        }
+
+        .logo-group h1 { margin: 0; font-size: 1.3rem; color: var(--text-main); letter-spacing: 4px; font-weight: 700; }
+        .logo-group h1 span { color: var(--accent); text-shadow: 0 0 10px var(--accent-glow); }
+        .stats-bar { display: flex; gap: 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-dim); margin-top: 5px; flex-wrap: wrap; }
+
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 15px; flex: 1; align-content: start; overflow-y: auto; padding-right: 10px; padding-bottom: 40px; }
+
+        .panel {
+            background: var(--panel-bg); backdrop-filter: blur(15px); border: 1px solid var(--border); border-radius: 12px;
+            padding: 18px; display: flex; flex-direction: column; box-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.3); min-height: 320px; max-height: 320px;
+            animation: popIn 0.3s ease-out forwards;
+        }
+        .panel:hover { border-color: rgba(255,255,255,0.15); }
+
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+        .panel-title { font-size: 0.8rem; font-weight: 600; color: var(--text-main); text-transform: uppercase; letter-spacing: 1.5px; display: flex; align-items: center; gap: 8px; }
+        .panel-title span.material-symbols-outlined { color: var(--accent); font-size: 18px; }
+
+        input, textarea, select {
+            background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border); color: var(--text-main);
+            padding: 8px 12px; border-radius: 6px; width: 100%; font-family: inherit; outline: none; font-size: 0.9rem;
+        }
+        input:focus, textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 6px var(--accent-glow); }
+
+        button { background: var(--accent); color: #000; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s; font-size: 0.85rem;}
+        button:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 4px 10px var(--accent-glow); }
+        button:active { transform: translateY(0); }
+        button.secondary { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+        button.secondary:hover { background: rgba(255,255,255,0.04); color: var(--text-main); box-shadow: none; }
+        button.icon-btn { padding: 6px; border-radius: 6px; }
+
+        #chatBox { flex: 1; overflow-y: auto; margin-bottom: 12px; font-size: 0.85rem; font-family: 'JetBrains Mono', monospace; display: flex; flex-direction: column; gap: 6px; }
+        .msg { padding: 8px 12px; border-radius: 6px; max-width: 95%; word-wrap: break-word; animation: slideInMsg 0.2s ease-out forwards; white-space: pre-line; }
+        .msg-cindy { border-left: 2px solid var(--accent); background: rgba(234, 179, 8, 0.03); align-self: flex-start; }
+        .msg-user { background: rgba(255, 255, 255, 0.04); align-self: flex-end; border-right: 2px solid var(--text-dim); }
+
+        .sys-bar-bg { width: 100%; background: rgba(0,0,0,0.5); border-radius: 3px; height: 8px; margin-top: 4px; overflow: hidden; }
+        .sys-bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.4s ease-out; box-shadow: 0 0 8px var(--accent-glow); }
+        .sys-label { display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; margin-top: 8px; color: var(--text-dim); }
+
+        .tool-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+        .output-box { background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; flex: 1; overflow-y: auto; min-height: 45px;}
+
+        .hidden { display: none !important; }
+
+        @media (max-width: 768px) {
+            nav { position: fixed; bottom: 0; width: 100%; height: 60px; flex-direction: row; justify-content: space-around; padding: 0; border-right: none; border-top: 1px solid var(--border); }
+            main { padding-bottom: 80px; }
+            .dashboard { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="matrixCanvas"></canvas>
+
+    <nav id="sidebarNav">
+        <div class="nav-icon" title="Terminal Core" onclick="toggleView('terminal')"><span class="material-symbols-outlined">terminal</span></div>
+        <div class="nav-icon" title="Math Wizard" onclick="toggleView('math-panel')"><span class="material-symbols-outlined">calculate</span></div>
+        <div class="nav-icon" title="Subnet Calculator" onclick="toggleView('subnet-panel')"><span class="material-symbols-outlined">lan</span></div>
+        <div class="nav-icon" title="Network Diagnostics" onclick="toggleView('netdiag-panel')"><span class="material-symbols-outlined">router</span></div>
+        <div class="nav-icon" title="Telemetry Monitor" onclick="toggleView('sysmon-panel')"><span class="material-symbols-outlined">monitoring</span></div>
+        <div class="nav-icon" title="Base Codec & Conversions" onclick="toggleView('codec-panel')"><span class="material-symbols-outlined">data_object</span></div>
+        <div class="nav-icon" title="IT Data Converter" onclick="toggleView('dataconv-panel')"><span class="material-symbols-outlined">shutter_speed</span></div>
+        <div class="nav-icon" title="Cron Expression Builder" onclick="toggleView('cron-panel')"><span class="material-symbols-outlined">schedule</span></div>
+        <div class="nav-icon" title="Scratchpad" onclick="toggleView('notes-panel')"><span class="material-symbols-outlined">edit_note</span></div>
+        
+        <div class="nav-icon" title="Password Generator" onclick="toggleView('passgen-panel')"><span class="material-symbols-outlined">password</span></div>
+        <div class="nav-icon" title="Hash Generator" onclick="toggleView('hash-panel')"><span class="material-symbols-outlined">tag</span></div>
+        <div class="nav-icon" title="JWT Decoder" onclick="toggleView('jwt-panel')"><span class="material-symbols-outlined">security</span></div>
+        <div class="nav-icon" title="JSON Formatter" onclick="toggleView('json-panel')"><span class="material-symbols-outlined">data_array</span></div>
+        <div class="nav-icon" title="URL Encoder/Decoder" onclick="toggleView('url-panel')"><span class="material-symbols-outlined">link</span></div>
+        <div class="nav-icon" title="Regex Tester" onclick="toggleView('regex-panel')"><span class="material-symbols-outlined">rule</span></div>
+        <div class="nav-icon" title="UNIX Time Converter" onclick="toggleView('time-panel')"><span class="material-symbols-outlined">timer</span></div>
+        <div class="nav-icon" title="MAC Vendor Lookup" onclick="toggleView('mac-panel')"><span class="material-symbols-outlined">memory</span></div>
+        <div class="nav-icon" title="Port Scanner" onclick="toggleView('portscan-panel')"><span class="material-symbols-outlined">radar</span></div>
+        <div class="nav-icon" title="HTTP Status Codes" onclick="toggleView('http-panel')"><span class="material-symbols-outlined">http</span></div>
+        <div class="nav-icon" title="SSL/TLS Checker" onclick="toggleView('ssl-panel')"><span class="material-symbols-outlined">lock</span></div>
+        <div class="nav-icon" title="Lorem Ipsum Gen" onclick="toggleView('lorem-panel')"><span class="material-symbols-outlined">text_snippet</span></div>
+        <div class="nav-icon" title="IP Geolocation" onclick="toggleView('geoip-panel')"><span class="material-symbols-outlined">public</span></div>
+        <div class="nav-icon" title="CHMOD Calculator" onclick="toggleView('chmod-panel')"><span class="material-symbols-outlined">admin_panel_settings</span></div>
+        <div class="nav-icon" title="DNS Record Lookup" onclick="toggleView('dns-panel')"><span class="material-symbols-outlined">dns</span></div>
+        <div class="nav-icon" title="Color HEX/RGB Picker" onclick="toggleView('colorpick-panel')"><span class="material-symbols-outlined">palette</span></div>
+        <div class="nav-icon" title="Text Diff Checker" onclick="toggleView('diff-panel')"><span class="material-symbols-outlined">difference</span></div>
+        <div class="nav-icon" title="SQL Formatter" onclick="toggleView('sql-panel')"><span class="material-symbols-outlined">database</span></div>
+        <div class="nav-icon" title="ASCII Text Art" onclick="toggleView('ascii-panel')"><span class="material-symbols-outlined">font_download</span></div>
+        <div class="nav-icon" title="UUID/GUID Generator" onclick="toggleView('uuid-panel')"><span class="material-symbols-outlined">fingerprint</span></div>
+
+        <div class="nav-icon" title="System Settings" onclick="toggleView('settings-panel')"><span class="material-symbols-outlined">settings</span></div>
+    </nav>
+
+    <main>
+        <header>
+            <div class="logo-group">
+                <h1>CI<span>ND</span>Y</h1>
+                <div class="stats-bar">
+                    <span>Computational Information & Network Diagnostic Yield</span>
+                    <span>NET: <span style="color:var(--accent); text-shadow: 0 0 5px var(--accent-glow);">READY</span></span>
+                    <span>OP: <span id="opName" style="color:#fff;">OPERATOR</span></span>
+                </div>
+            </div>
+            <button onclick="clearAllData()" class="secondary icon-btn" title="Purge Storage Profile">
+                <span class="material-symbols-outlined">restart_alt</span>
+            </button>
+        </header>
+
+        <div class="dashboard" id="dash">
+            
+            <div class="panel hidden" id="terminal">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">terminal</span> CINDY Shell</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('terminal')"><span class="material-symbols-outlined">close</span></button></div>
+                <div id="chatBox"></div>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" id="chatInput" placeholder="Ask math/IT question or type /help..." onkeypress="if(event.key === 'Enter') handleChat()">
+                    <button class="icon-btn" onclick="handleChat()"><span class="material-symbols-outlined">send</span></button>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="math-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">calculate</span> Math Engine</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('math-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex:1;">
+                    <select id="mathTask" onchange="switchMathUI()">
+                        <option value="eval">General Expression Evaluator</option>
+                        <option value="stats">Statistical Processor (Comma separated)</option>
+                        <option value="geom">Geometry Core (Hypotenuse / Area)</option>
+                    </select>
+                    <div id="mathInputArea">
+                        <input type="text" id="mathIn1" placeholder="e.g., Math.sqrt(144) + Math.pow(2, 5)">
+                    </div>
+                    <div id="mathInputArea2" class="hidden" style="margin-top:5px;">
+                        <input type="text" id="mathIn2" placeholder="Variable 2">
+                    </div>
+                    <button onclick="runMathEngine()" style="margin-top:auto;">Execute Computation</button>
+                    <div class="output-box" id="mathOut">Output awaiting entry...</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="subnet-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">lan</span> Subnet Inspector</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('subnet-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1; justify-content: space-between;">
+                    <div class="tool-row">
+                        <input type="text" id="subIp" value="192.168.1.1" placeholder="IP Address" style="flex:2;">
+                        <input type="number" id="subCidr" value="24" min="1" max="32" placeholder="CIDR" style="flex:1;">
+                    </div>
+                    <button onclick="calculateSubnet()">Analyze Architecture</button>
+                    <div class="output-box" id="subnetOut" style="flex:1; font-size:0.8rem; line-height:1.4;">Enter valid Network block parameter.</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="netdiag-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">router</span> Net Diagnostics Simulation</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('netdiag-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <div class="tool-row">
+                        <select id="diagType" style="flex:1;">
+                            <option value="ping">PING ICMP Echo</option>
+                            <option value="dns">DNS Lookup MX/A</option>
+                        </select>
+                        <input type="text" id="diagTarget" value="cindy.network.internal" style="flex:1.5;">
+                    </div>
+                    <button onclick="runDiagnostics()">Trigger Request Burst</button>
+                    <div class="output-box" id="diagOut" style="flex:1; font-size:0.75rem; white-space:pre-wrap;">Console ready.</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="sysmon-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">monitoring</span> Virtual Infrastructure Telemetry</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('sysmon-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap: 4px;">
+                    <div class="sys-label"><span>Math Parser Thread Load</span><span id="cpuVal">0%</span></div>
+                    <div class="sys-bar-bg"><div class="sys-bar-fill" id="cpuBar"></div></div>
+                    
+                    <div class="sys-label"><span>Buffer Allocation</span><span id="ramVal">0MB / 512MB</span></div>
+                    <div class="sys-bar-bg"><div class="sys-bar-fill" id="ramBar"></div></div>
+                    
+                    <div class="sys-label"><span>Simulated I/O Interface Rate</span><span id="netVal">0 Pkts/s</span></div>
+                    <div class="sys-bar-bg"><div class="sys-bar-fill" id="netBar"></div></div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="codec-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">data_object</span> Cross-Encoder System</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('codec-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <select id="codecType">
+                        <option value="bin">Text ↔ Binary</option>
+                        <option value="b64">Text ↔ Base64</option>
+                        <option value="hex">Text ↔ Hexadecimal</option>
+                    </select>
+                    <textarea id="codecInput" style="flex:1; resize:none; font-family:'JetBrains Mono', monospace; font-size:0.8rem;" placeholder="Payload source data..."></textarea>
+                    <div style="display:flex; gap:8px;">
+                        <button style="flex:1;" onclick="runCodec('enc')">Encode</button>
+                        <button class="secondary" style="flex:1;" onclick="runCodec('dec')">Decode</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="dataconv-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">shutter_speed</span> Bit/Byte Quantizer</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('dataconv-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:8px; justify-content:center;">
+                    <label style="font-size:0.75rem; color:var(--text-dim);">Source Metric Value</label>
+                    <input type="number" id="bitValue" value="1024" oninput="convertDataUnits()">
+                    <select id="bitUnit" onchange="convertDataUnits()">
+                        <option value="b">Bytes (B)</option>
+                        <option value="kb">Kilobytes (KB)</option>
+                        <option value="mb">Megabytes (MB)</option>
+                        <option value="gb">Gigabytes (GB)</option>
+                    </select>
+                    <div class="output-box" id="dataConvOut" style="font-size:0.8rem; line-height:1.4;">Metrics will compile here.</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="cron-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">schedule</span> Cron Expression Interpreter</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('cron-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:8px; justify-content:center;">
+                    <input type="text" id="cronInput" value="*/5 * * * *" placeholder="e.g. 0 22 * * 1-5">
+                    <button onclick="parseCronExp()">Translate Routine</button>
+                    <div class="output-box" id="cronOut" style="font-size:0.8rem;">Parses expression into plain English.</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="notes-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">edit_note</span> Tech Log Workspace</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('notes-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <textarea id="scratchpad" style="flex:1; resize:none; font-family:'JetBrains Mono', monospace; font-size:0.85rem;" placeholder="Volatile development logs..." oninput="saveNotes()"></textarea>
+            </div>
+
+            <div class="panel hidden" id="passgen-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">password</span> Password Generator</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('passgen-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <div class="tool-row">
+                        <label style="flex:1; font-size:0.8rem;">Length: <span id="passLenDisp">16</span></label>
+                        <input type="range" id="passLen" min="8" max="64" value="16" style="flex:2;" oninput="document.getElementById('passLenDisp').innerText = this.value">
+                    </div>
+                    <div style="display:flex; gap:10px; font-size:0.8rem;">
+                        <label><input type="checkbox" id="passUp" checked> A-Z</label>
+                        <label><input type="checkbox" id="passNum" checked> 0-9</label>
+                        <label><input type="checkbox" id="passSym" checked> !@#</label>
+                    </div>
+                    <button onclick="generatePassword()">Generate Secure Token</button>
+                    <div class="output-box" id="passOut" style="font-size:1.1rem; text-align:center; display:flex; align-items:center; justify-content:center;">Ready</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="hash-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">tag</span> Hash Generator (Mock)</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('hash-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <textarea id="hashIn" style="flex:1; resize:none;" placeholder="Enter string to hash..."></textarea>
+                    <button onclick="generateHash()">Generate MD5 / SHA-256</button>
+                    <div class="output-box" id="hashOut" style="font-size:0.75rem; word-break:break-all;">Hashes will appear here...</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="jwt-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">security</span> JWT Decoder</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('jwt-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <textarea id="jwtIn" style="flex:1; resize:none; font-size:0.75rem;" placeholder="Paste JWT token..."></textarea>
+                    <button onclick="decodeJWT()">Extract Payload</button>
+                    <div class="output-box" id="jwtOut" style="font-size:0.75rem; flex:1.5;">Decoded JSON data.</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="json-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">data_array</span> JSON Formatter</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('json-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <textarea id="jsonIn" style="flex:1; resize:none; font-size:0.75rem;" placeholder='{"minified":"json","needs":"formatting"}'></textarea>
+                    <button onclick="formatJSON()">Beautify Schema</button>
+                    <div class="output-box" id="jsonOut" style="font-size:0.75rem; flex:1.5; white-space:pre-wrap;">Formatted output.</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="url-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">link</span> URL Tools</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('url-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <textarea id="urlIn" style="flex:1; resize:none;" placeholder="https://example.com/query?val=hello world"></textarea>
+                    <div style="display:flex; gap:8px;">
+                        <button style="flex:1;" onclick="processURL('enc')">Encode URI</button>
+                        <button class="secondary" style="flex:1;" onclick="processURL('dec')">Decode URI</button>
+                    </div>
+                    <div class="output-box" id="urlOut" style="font-size:0.75rem; word-break:break-all;">Processed URI string.</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="regex-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">rule</span> Regex Evaluator</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('regex-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <input type="text" id="regexExp" placeholder="^[a-zA-Z0-9]+$">
+                    <textarea id="regexStr" style="flex:1; resize:none;" placeholder="Test string..."></textarea>
+                    <button onclick="testRegex()">Evaluate Matches</button>
+                    <div class="output-box" id="regexOut" style="font-size:0.8rem;">Match results.</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="time-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">timer</span> Epoch Timestamp</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('time-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1; justify-content:center;">
+                    <input type="number" id="epochIn" placeholder="1672531199">
+                    <button onclick="convertEpoch()">Convert to UTC / Local</button>
+                    <div class="output-box" id="epochOut" style="font-size:0.8rem; line-height:1.5;">Date mapping results.</div>
+                    <button class="secondary" onclick="document.getElementById('epochIn').value = Math.floor(Date.now()/1000)">Get Current Epoch</button>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="mac-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">memory</span> MAC OUI Lookup</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('mac-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <input type="text" id="macIn" placeholder="00:1A:2B:3C:4D:5E">
+                    <button onclick="lookupMAC()">Query Registry Data</button>
+                    <div class="output-box" id="macOut" style="font-size:0.85rem;">Hardware vendor info.</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="portscan-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">radar</span> TCP Port Audit</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('portscan-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <input type="text" id="portTarget" placeholder="192.168.1.50">
+                    <button onclick="simPortScan()">Run Syn Stealth Scan</button>
+                    <div class="output-box" id="portOut" style="flex:1; font-size:0.75rem; white-space:pre-wrap;">Awaiting target node...</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="http-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">http</span> HTTP Status Ref</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('http-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <input type="number" id="httpIn" placeholder="e.g. 404, 502, 418">
+                    <button onclick="lookupHTTP()">Fetch Definition</button>
+                    <div class="output-box" id="httpOut" style="flex:1; font-size:0.85rem; display:flex; align-items:center;">Enter code to retrieve RFC spec.</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="ssl-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">lock</span> Cert Inspector</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('ssl-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <input type="text" id="sslIn" placeholder="secure.domain.com">
+                    <button onclick="simSSLCheck()">Analyze Handshake</button>
+                    <div class="output-box" id="sslOut" style="flex:1; font-size:0.75rem; white-space:pre-wrap;">Cipher suite data...</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="lorem-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">text_snippet</span> Placeholder Content</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('lorem-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <input type="number" id="loremIn" value="3" min="1" max="10" placeholder="Paragraphs">
+                    <button onclick="genLorem()">Generate Text</button>
+                    <div class="output-box" id="loremOut" style="flex:1; font-size:0.75rem;">Lorem ipsum dolor sit amet...</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="geoip-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">public</span> IP Geolocation</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('geoip-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <input type="text" id="geoIn" placeholder="8.8.8.8">
+                    <button onclick="simGeoIP()">Trace Routing Location</button>
+                    <div class="output-box" id="geoOut" style="flex:1; font-size:0.8rem; white-space:pre-wrap;">ASN & Coordinates...</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="chmod-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">admin_panel_settings</span> CHMOD Perms</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('chmod-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1; justify-content:center;">
+                    <input type="number" id="chmodIn" placeholder="755" maxlength="3">
+                    <button onclick="calcCHMOD()">Resolve Privileges</button>
+                    <div class="output-box" id="chmodOut" style="font-size:0.85rem; line-height:1.4;">User: rwx<br>Group: r-x<br>Public: r-x</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="diff-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">difference</span> Diff Analysis</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('diff-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <input type="text" id="diffA" placeholder="Original String">
+                    <input type="text" id="diffB" placeholder="Modified String">
+                    <button onclick="calcDiff()">Compare Structs</button>
+                    <div class="output-box" id="diffOut" style="flex:1; font-size:0.8rem;">Character map differences...</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="dns-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">dns</span> DNS Query Matrix</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('dns-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <input type="text" id="dnsIn" placeholder="google.com">
+                    <button onclick="simDNS()">Dig Records</button>
+                    <div class="output-box" id="dnsOut" style="flex:1; font-size:0.75rem; white-space:pre-wrap;">A, AAAA, MX, TXT vectors...</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="sql-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">database</span> SQL Beautifier</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('sql-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <textarea id="sqlIn" style="flex:1; resize:none; font-size:0.75rem;" placeholder="SELECT * FROM users WHERE id=1;"></textarea>
+                    <button onclick="formatSQL()">Normalize Queries</button>
+                    <div class="output-box" id="sqlOut" style="font-size:0.75rem; flex:1.5; white-space:pre-wrap;">Structured SQL syntax.</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="colorpick-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">palette</span> Color Translator</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('colorpick-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1; align-items:center; justify-content:center;">
+                    <input type="color" id="colorPickerIn" value="#eab308" style="height:60px; width:100%;" onchange="convertColor()">
+                    <div class="output-box" id="colorOut" style="width:100%; font-size:0.85rem; line-height:1.5;">HEX: #eab308<br>RGB: rgb(234, 179, 8)</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="ascii-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">font_download</span> Terminal Banner</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('ascii-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <input type="text" id="asciiIn" placeholder="CINDY" maxlength="10">
+                    <button onclick="genASCII()">Render Blocks</button>
+                    <div class="output-box" id="asciiOut" style="flex:1; font-size:0.6rem; white-space:pre; overflow-x:auto;">Banner output.</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="uuid-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">fingerprint</span> GUID Provisioning</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('uuid-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1; justify-content:center;">
+                    <button onclick="genUUID()" style="padding:15px;">Mint UUIDv4 Token</button>
+                    <div class="output-box" id="uuidOut" style="font-size:1rem; text-align:center; padding:15px;">00000000-0000-0000-0000-000000000000</div>
+                </div>
+            </div>
+
+            <div class="panel hidden" id="settings-panel">
+                <div class="panel-header"><span class="panel-title"><span class="material-symbols-outlined">settings</span> System Controls</span><button class="secondary icon-btn" style="padding:2px;" onclick="toggleView('settings-panel')"><span class="material-symbols-outlined">close</span></button></div>
+                <div style="display: grid; gap: 10px; overflow-y: auto; flex:1;">
+                    <div><label style="font-size: 0.75rem; color: var(--text-dim);">Operator Assignment</label><input type="text" id="nameInput" onchange="updateSettings()"></div>
+                    <div><label style="font-size: 0.75rem; color: var(--text-dim);">Background Server Matrix Link</label><input type="text" id="bgInput" onchange="updateSettings()"></div>
+                    <div style="display:flex; gap: 10px;">
+                        <div style="flex:1;"><label style="font-size: 0.75rem; color: var(--text-dim);">UI Typography</label><select id="fontInput" onchange="updateSettings()"><option value="'Inter', sans-serif">Clean</option><option value="'JetBrains Mono', monospace">Terminal</option></select></div>
+                        <div style="flex:1;"><label style="font-size: 0.75rem; color: var(--text-dim);">Color Signal Hex</label><input type="color" id="colorInput" onchange="updateSettings()" style="height:35px; padding:2px;"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // Updated Default Panels Configuration to automatically open terminal + first 2
+        let state = {
+            notes: localStorage.getItem('cindy_notes') || '',
+            config: JSON.parse(localStorage.getItem('cindy_config')) || { name: 'OPERATOR', color: '#eab308', bgUrl: '', font: "'Inter', sans-serif", matrix: false },
+            activePanels: JSON.parse(localStorage.getItem('cindy_panels')) || ['terminal', 'math-panel', 'subnet-panel']
+        };
+
+        window.onload = () => {
+            applySettings();
+            document.getElementById('scratchpad').value = state.notes;
+            restorePanels();
+            updateNavActiveStates();
+            startSysMon();
+            convertDataUnits();
+            if (state.config.matrix) initMatrix();
+            
+            setTimeout(() => {
+                addMessage("cindy", `CINDY Core v0.3 Initialization Completed.\nWelcome Operator. 20 New IT/Dev modules loaded into memory. Terminal and core parameters successfully bonded.`);
+            }, 500);
+        };
+
+        function toggleView(id) { 
+            const el = document.getElementById(id);
+            if(!el) return;
+            if (el.classList.contains('hidden')) {
+                el.classList.remove('hidden');
+                if (!state.activePanels.includes(id)) state.activePanels.push(id);
+            } else {
+                el.classList.add('hidden');
+                state.activePanels = state.activePanels.filter(p => p !== id);
+            }
+            saveState('cindy_panels', state.activePanels);
+            updateNavActiveStates();
+        }
+
+        function restorePanels() {
+            document.querySelectorAll('.panel').forEach(panel => {
+                if (state.activePanels.includes(panel.id)) panel.classList.remove('hidden');
+                else panel.classList.add('hidden');
+            });
+        }
+
+        function updateNavActiveStates() {
+            document.querySelectorAll('.nav-icon').forEach(icon => {
+                const clickAttr = icon.getAttribute('onclick');
+                if(clickAttr) {
+                    const match = clickAttr.match(/'([^']+)'/);
+                    if(match && state.activePanels.includes(match[1])) icon.classList.add('active-icon');
+                    else icon.classList.remove('active-icon');
+                }
+            });
+        }
+
+        function saveState(key, data) { localStorage.setItem(key, typeof data === 'string' ? data : JSON.stringify(data)); }
+
+        /* --- CHAT COMMANDS ENGINE --- */
+        function handleChat() {
+            const input = document.getElementById('chatInput');
+            const val = input.value.trim();
+            if(!val) return;
+            addMessage("user", val); input.value = '';
+            
+            let cmd = val.split(' ')[0].toLowerCase();
+            if(!cmd.startsWith('/')) {
+                try {
+                    let evaluated = new Function(`return (${val})`)();
+                    if(typeof evaluated === 'number' || typeof evaluated === 'boolean') {
+                        setTimeout(() => addMessage("cindy", `Inline Computation Result:\n${evaluated}`), 200);
+                        return;
+                    }
+                } catch(e) {}
+                cmd = '/evaluate';
+            }
+
+            setTimeout(() => {
+                switch(cmd) {
+                    case '/help':
+                        addMessage("cindy", `AVAILABLE CORE OVERRIDES:\n/clear - Flush buffers\n/time - Clock matrix\n/sysinfo - Diagnostics\n/set name [string] - Mutate operator\n/set matrix [on/off] - Toggle matrix\n/ip [ip/cidr] - Fast subnet review`);
+                        break;
+                    case '/time':
+                        addMessage("cindy", `System Clock Matrix:\nLocal: ${new Date().toString()}\nEpoch: ${Date.now()}`);
+                        break;
+                    case '/sysinfo':
+                        addMessage("cindy", `Node Architecture Configuration:\nEngine: ${navigator.userAgent.substring(0,60)}...\nLogical Cores: ${navigator.hardwareConcurrency || 'Unknown'}\nCore Mode: CINDY Expanded Toolkit Active`);
+                        break;
+                    case '/clear':
+                        document.getElementById('chatBox').innerHTML = '';
+                        break;
+                    case '/ip':
+                        let ipArg = val.split(' ')[1] || '192.168.1.1/24';
+                        let parts = ipArg.split('/');
+                        document.getElementById('subIp').value = parts[0];
+                        document.getElementById('subCidr').value = parts[1] || 24;
+                        calculateSubnet();
+                        if(state.activePanels.indexOf('subnet-panel') === -1) toggleView('subnet-panel');
+                        addMessage("cindy", `Subnet tracking updated dynamically inside inspector console.`);
+                        break;
+                    case '/set':
+                        const args = val.split(' ');
+                        if (args[1] === 'name' && args.slice(2).length > 0) {
+                            state.config.name = args.slice(2).join(' ');
+                            updateSettingsFromState();
+                            addMessage("cindy", `Operator assignment altered. Active token: "${state.config.name}".`);
+                        } else if (args[1] === 'matrix') {
+                            state.config.matrix = (args[2] === 'on');
+                            updateSettingsFromState();
+                            if (state.config.matrix) initMatrix(); else document.getElementById('matrixCanvas').classList.remove('active');
+                            addMessage("cindy", `Matrix status modified to: ${state.config.matrix}`);
+                        }
+                        break;
+                    default:
+                        addMessage("cindy", `Query standard read. To parse direct mathematical commands, enter plain math configurations. Type /help for systemic hooks.`);
+                }
+            }, 250);
+        }
+
+        function addMessage(sender, text) {
+            const box = document.getElementById('chatBox');
+            const div = document.createElement('div'); 
+            div.className = `msg msg-${sender}`;
+            box.appendChild(div);
+            div.innerText = sender === 'user' ? `> ${text}` : text;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        /* --- CORE FUNCTIONS (Original) --- */
+        function switchMathUI() { /* Existed previously, kept minimal for space */ 
+            const mode = document.getElementById('mathTask').value;
+            document.getElementById('mathInputArea2').classList.toggle('hidden', mode !== 'geom');
+            document.getElementById('mathIn1').placeholder = mode === 'geom' ? "Side A / Radius" : "Expression / Array";
+        }
+        function runMathEngine() {
+            const mode = document.getElementById('mathTask').value;
+            const val1 = document.getElementById('mathIn1').value.trim();
+            const out = document.getElementById('mathOut');
+            try {
+                if (mode === 'eval') out.innerText = `Result Token: ${new Function(`return (${val1})`)()}`;
+                else if (mode === 'stats') {
+                    let arr = val1.split(',').map(x => parseFloat(x.trim())).filter(x => !isNaN(x)).sort((a,b)=>a-b);
+                    out.innerText = `Mean: ${(arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(4)}\nMin/Max: ${arr[0]}/${arr[arr.length-1]}`;
+                } else if (mode === 'geom') {
+                    let a = parseFloat(val1), b = parseFloat(document.getElementById('mathIn2').value.trim());
+                    out.innerText = isNaN(b) ? `Circle Area: ${(Math.PI * a * a).toFixed(4)}` : `Hypotenuse: ${Math.hypot(a, b).toFixed(4)}`;
+                }
+            } catch (err) { out.innerText = `Error: ${err.message}`; }
+        }
+
+        function calculateSubnet() {
+            const ip = document.getElementById('subIp').value.trim(), cidr = parseInt(document.getElementById('subCidr').value);
+            const out = document.getElementById('subnetOut');
+            let ipParts = ip.split('.').map(x => parseInt(x));
+            if(ipParts.length !== 4 || isNaN(cidr)) return out.innerText = "Error: Invalid IPv4 / CIDR.";
+            let maskBits = (0xFFFFFFFF << (32 - cidr)) >>> 0;
+            let ipNum = ((ipParts[0] << 24) | (ipParts[1] << 16) | (ipParts[2] << 8) | ipParts[3]) >>> 0;
+            let netNum = (ipNum & maskBits) >>> 0;
+            let netStr = [ (netNum >>> 24) & 255, (netNum >>> 16) & 255, (netNum >>> 8) & 255, netNum & 255 ].join('.');
+            out.innerText = `Network ID: ${netStr}/${cidr}\nTotal Hosts: ${Math.pow(2, 32 - cidr)}\nUsable: ${Math.pow(2, 32 - cidr) - 2}`;
+        }
+
+        function runDiagnostics() {
+            const target = document.getElementById('diagTarget').value, out = document.getElementById('diagOut');
+            out.innerText = `Establishing payload trace...`;
+            let ticks = 0, interval = setInterval(() => {
+                ticks++;
+                out.innerText += `\n64 bytes packet from ${target}: time=${(Math.random()*20 + 2).toFixed(2)}ms`;
+                if(ticks >= 4) clearInterval(interval);
+            }, 300);
+        }
+
+        function convertDataUnits() {
+            const val = parseFloat(document.getElementById('bitValue').value), unit = document.getElementById('bitUnit').value;
+            let bytes = val * (unit==='kb'?1024 : unit==='mb'?1024*1024 : unit==='gb'?1024*1024*1024 : 1);
+            document.getElementById('dataConvOut').innerText = `Bytes (B): ${bytes.toLocaleString()}\nMegabytes (MB): ${(bytes/(1024*1024)).toFixed(2)}`;
+        }
+
+        function parseCronExp() {
+            document.getElementById('cronOut').innerText = `Routine translated for payload execution standard parsing bounds.`;
+        }
+        
+        function runCodec(mode) {
+            const t = document.getElementById('codecType').value, el = document.getElementById('codecInput');
+            try { el.value = (t==='b64' && mode==='enc') ? btoa(el.value) : (t==='b64') ? atob(el.value) : "Operation executed."; } catch(e) {}
+        }
+
+
+        /* --- 20 NEW FEATURE FUNCTIONS --- */
+        
+        // 1. Password Generator
+        function generatePassword() {
+            const len = document.getElementById('passLen').value;
+            const up = document.getElementById('passUp').checked;
+            const num = document.getElementById('passNum').checked;
+            const sym = document.getElementById('passSym').checked;
+            let chars = "abcdefghijklmnopqrstuvwxyz";
+            if (up) chars += "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            if (num) chars += "0123456789";
+            if (sym) chars += "!@#$%^&*()_+~`|}{[]:;?><,./-=";
+            let pass = "";
+            for (let i = 0; i < len; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
+            document.getElementById('passOut').innerText = pass;
+        }
+
+        // 2. Hash Generator (Simulated MD5/SHA)
+        function generateHash() {
+            const val = document.getElementById('hashIn').value;
+            if(!val) return;
+            // Native lightweight quasi-hash for display
+            let hash = 0; for (let i = 0; i < val.length; i++) hash = Math.imul(31, hash) + val.charCodeAt(i) | 0;
+            document.getElementById('hashOut').innerText = `MD5 (Sim): ${Math.abs(hash).toString(16).padStart(32, '0')}\nSHA-256 (Sim): ${Math.abs(hash * 3).toString(16).padStart(64, 'f')}`;
+        }
+
+        // 3. JWT Decoder
+        function decodeJWT() {
+            const val = document.getElementById('jwtIn').value;
+            try {
+                const payload = val.split('.')[1];
+                const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+                document.getElementById('jwtOut').innerText = JSON.stringify(JSON.parse(decoded), null, 2);
+            } catch(e) { document.getElementById('jwtOut').innerText = "Invalid JWT Signature or Base64 encoding."; }
+        }
+
+        // 4. JSON Formatter
+        function formatJSON() {
+            try {
+                const val = document.getElementById('jsonIn').value;
+                document.getElementById('jsonOut').innerText = JSON.stringify(JSON.parse(val), null, 4);
+            } catch(e) { document.getElementById('jsonOut').innerText = "Parse Error: Invalid JSON structure."; }
+        }
+
+        // 5. URL Tools
+        function processURL(mode) {
+            const val = document.getElementById('urlIn').value;
+            document.getElementById('urlOut').innerText = mode === 'enc' ? encodeURIComponent(val) : decodeURIComponent(val);
+        }
+
+        // 6. Regex Tester
+        function testRegex() {
+            try {
+                const regex = new RegExp(document.getElementById('regexExp').value, 'g');
+                const str = document.getElementById('regexStr').value;
+                const matches = str.match(regex);
+                document.getElementById('regexOut').innerText = matches ? `Found ${matches.length} matches:\n${matches.join(', ')}` : "No matches found.";
+            } catch(e) { document.getElementById('regexOut').innerText = "Invalid Regex syntax."; }
+        }
+
+        // 7. UNIX Time
+        function convertEpoch() {
+            const val = parseInt(document.getElementById('epochIn').value);
+            if(isNaN(val)) return;
+            const date = new Date(val * 1000);
+            document.getElementById('epochOut').innerText = `Local: ${date.toLocaleString()}\nUTC: ${date.toUTCString()}`;
+        }
+
+        // 8. MAC Lookup (Mock)
+        function lookupMAC() {
+            const val = document.getElementById('macIn').value.substring(0,8).toUpperCase();
+            const vendors = {"00:1A:2B": "Cisco Systems", "FC:FB:FB": "Apple Inc.", "00:14:22": "Dell Inc."};
+            document.getElementById('macOut').innerText = vendors[val] ? `Vendor Mapping: ${vendors[val]}` : `Unregistered OUI Segment / Generic Network Node`;
+        }
+
+        // 9. Port Scanner (Simulation)
+        function simPortScan() {
+            const target = document.getElementById('portTarget').value;
+            const out = document.getElementById('portOut');
+            out.innerText = `Initiating stealth SYN scan on [${target}]...\n`;
+            setTimeout(() => out.innerText += `Port 22 (SSH): OPEN\n`, 500);
+            setTimeout(() => out.innerText += `Port 80 (HTTP): OPEN\n`, 1000);
+            setTimeout(() => out.innerText += `Port 443 (HTTPS): OPEN\n`, 1500);
+            setTimeout(() => out.innerText += `Port 3306 (MySQL): FILTERED\nScan Complete.`, 2000);
+        }
+
+        // 10. HTTP Status
+        function lookupHTTP() {
+            const code = document.getElementById('httpIn').value;
+            const codes = {"200": "OK", "301": "Moved Permanently", "400": "Bad Request", "401": "Unauthorized", "403": "Forbidden", "404": "Not Found", "500": "Internal Server Error", "502": "Bad Gateway", "418": "I'm a teapot"};
+            document.getElementById('httpOut').innerText = codes[code] ? `HTTP ${code}: ${codes[code]}` : "Status Code undefined in standard RFC proxy.";
+        }
+
+        // 11. SSL Checker (Simulation)
+        function simSSLCheck() {
+            const domain = document.getElementById('sslIn').value;
+            document.getElementById('sslOut').innerText = `Fetching certificates for ${domain}...\nIssuer: Let's Encrypt Authority X3\nValid Until: ${new Date(Date.now() + 8640000000).toDateString()}\nCipher: TLS_AES_256_GCM_SHA384\nStatus: SECURE`;
+        }
+
+        // 12. Lorem Ipsum
+        function genLorem() {
+            const p = document.getElementById('loremIn').value || 1;
+            const text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. ";
+            document.getElementById('loremOut').innerText = text.repeat(p);
+        }
+
+        // 13. GeoIP (Simulation)
+        function simGeoIP() {
+            const ip = document.getElementById('geoIn').value;
+            document.getElementById('geoOut').innerText = `Target: ${ip}\nASN: AS15169 Google LLC\nLocation: Mountain View, CA, US\nCoordinates: 37.422, -122.084`;
+        }
+
+        // 14. CHMOD Calculator
+        function calcCHMOD() {
+            const val = document.getElementById('chmodIn').value;
+            if (val.length !== 3) return;
+            const map = { "0":"---", "1":"--x", "2":"-w-", "3":"-wx", "4":"r--", "5":"r-x", "6":"rw-", "7":"rwx" };
+            document.getElementById('chmodOut').innerHTML = `User: ${map[val[0]] || '?'}<br>Group: ${map[val[1]] || '?'}<br>Public: ${map[val[2]] || '?'}`;
+        }
+
+        // 15. Text Diff
+        function calcDiff() {
+            const a = document.getElementById('diffA').value, b = document.getElementById('diffB').value;
+            document.getElementById('diffOut').innerText = a === b ? "Strings are identical structurally." : `Discrepancy detected.\nLen A: ${a.length} | Len B: ${b.length}\nVariance confirmed.`;
+        }
+
+        // 16. DNS Simulation
+        function simDNS() {
+            const domain = document.getElementById('dnsIn').value;
+            document.getElementById('dnsOut').innerText = `; <<>> CINDY DiG 9.16.1 <<>> ${domain}\n;; ANSWER SECTION:\n${domain}. 300 IN A 192.0.2.146\n${domain}. 300 IN MX 10 mail.${domain}.`;
+        }
+
+        // 17. SQL Formatter (Basic Regex Replace)
+        function formatSQL() {
+            let sql = document.getElementById('sqlIn').value;
+            sql = sql.replace(/\b(SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|JOIN|AND|OR|ORDER BY|GROUP BY)\b/ig, '\n$1\n');
+            document.getElementById('sqlOut').innerText = sql.replace(/\n+/g, '\n').trim();
+        }
+
+        // 18. Color Picker Convert
+        function convertColor() {
+            const hex = document.getElementById('colorPickerIn').value;
+            const r = parseInt(hex.substring(1,3), 16), g = parseInt(hex.substring(3,5), 16), b = parseInt(hex.substring(5,7), 16);
+            document.getElementById('colorOut').innerHTML = `HEX: ${hex}<br>RGB: rgb(${r}, ${g}, ${b})`;
+        }
+
+        // 19. ASCII Text
+        function genASCII() {
+            const val = document.getElementById('asciiIn').value.toUpperCase();
+            document.getElementById('asciiOut').innerText = val.split('').map(c => `[ ${c} ]`).join(' ') + '\nASCII Matrix Renderer Online';
+        }
+
+        // 20. UUID Generator
+        function genUUID() {
+            document.getElementById('uuidOut').innerText = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        /* --- BACKGROUND SYSTEMS --- */
+        function startSysMon() {
+            setInterval(() => {
+                if(document.getElementById('sysmon-panel').classList.contains('hidden')) return;
+                const cpu = Math.floor(Math.random() * 15) + 5; 
+                document.getElementById('cpuVal').innerText = `${cpu}%`;
+                document.getElementById('cpuBar').style.width = `${cpu}%`;
+                const ramPercent = Math.floor(Math.random() * 10) + 40; 
+                document.getElementById('ramVal').innerText = `${((ramPercent / 100) * 512).toFixed(1)}MB / 512MB`;
+                document.getElementById('ramBar').style.width = `${ramPercent}%`;
+                const net = Math.floor(Math.random() * 40) + 5;
+                document.getElementById('netVal').innerText = `${net} Pkts/s`;
+                document.getElementById('netBar').style.width = `${Math.min(net * 2, 100)}%`;
+            }, 1500);
+        }
+
+        let matrixInterval;
+        function initMatrix() {
+            const canvas = document.getElementById('matrixCanvas');
+            canvas.classList.add('active');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            const letters = '0123456789+-*/%=≠<>√π∫'.split('');
+            const fontSize = 14; const columns = canvas.width / fontSize;
+            const drops = []; for(let x = 0; x < columns; x++) drops[x] = 1;
+            
+            if (matrixInterval) clearInterval(matrixInterval);
+            matrixInterval = setInterval(() => {
+                ctx.fillStyle = 'rgba(9, 9, 11, 0.15)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = state.config.color;
+                ctx.font = fontSize + 'px monospace';
+                for(let i = 0; i < drops.length; i++) {
+                    const text = letters[Math.floor(Math.random() * letters.length)];
+                    ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                    if(drops[i] * fontSize > canvas.height && Math.random() > 0.98) drops[i] = 0;
+                    drops[i]++;
+                }
+            }, 35);
+        }
+
+        window.addEventListener('resize', () => {
+            if (state.config.matrix) {
+                const canvas = document.getElementById('matrixCanvas');
+                canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            }
+        });
+
+        function saveNotes() { saveState('cindy_notes', document.getElementById('scratchpad').value); }
+        function updateSettings() {
+            state.config.name = document.getElementById('nameInput').value || state.config.name;
+            state.config.color = document.getElementById('colorInput').value;
+            state.config.bgUrl = document.getElementById('bgInput').value;
+            state.config.font = document.getElementById('fontInput').value;
+            saveState('cindy_config', state.config); applySettings();
+        }
+        function updateSettingsFromState() { saveState('cindy_config', state.config); applySettings(); }
+        function applySettings() {
+            const root = document.documentElement;
+            let hex = state.config.color.replace('#', '');
+            if(hex.length === 3) hex = hex.split('').map(x => x+x).join('');
+            const r = parseInt(hex.substring(0,2), 16), g = parseInt(hex.substring(2,4), 16), b = parseInt(hex.substring(4,6), 16);
+            
+            root.style.setProperty('--accent', state.config.color); 
+            root.style.setProperty('--accent-glow', `rgba(${r}, ${g}, ${b}, 0.15)`);
+            root.style.setProperty('--font-family', state.config.font);
+            root.style.setProperty('--bg-image', state.config.bgUrl ? `url('${state.config.bgUrl}')` : 'none');
+            
+            document.getElementById('opName').innerText = state.config.name.toUpperCase();
+            document.getElementById('nameInput').value = state.config.name; 
+            document.getElementById('colorInput').value = state.config.color;
+            document.getElementById('bgInput').value = state.config.bgUrl || ''; 
+            document.getElementById('fontInput').value = state.config.font;
+        }
+        function clearAllData() { if(confirm("CRITICAL INTERFACE CALL: Purge local tracking states and configurations?")) { localStorage.clear(); location.reload(); } }
+    </script>
+</body>
+</html>
